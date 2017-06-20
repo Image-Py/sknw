@@ -1,11 +1,6 @@
 import numpy as np
 from numba import jit
-from scipy.misc import imread
-import scipy.ndimage as nimg
 import networkx as nx
-import matplotlib.pyplot as plt
-from skimage import data
-from skimage.morphology import skeletonize
 
 # get neighbors d index
 def neighbors(shape):
@@ -32,7 +27,7 @@ def mark(img): # mark the array use (0, 1, 2)
 
 @jit # trans index to r, c...
 def idx2rc(idx, acc):
-    rst = np.zeros((len(idx), len(acc)), dtype=np.uint16)
+    rst = np.zeros((len(idx), len(acc)), dtype=np.int16)
     for i in range(len(idx)):
         for j in range(len(acc)):
             rst[i,j] = idx[i]//acc[j]
@@ -128,69 +123,3 @@ def draw_graph(img, graph):
         pts = graph[s][e]['pts']
         img[pts[:,0], pts[:,1]] = 128
 
-# ====================== test ========================
-def test_draw_graph(img, graph):
-    draw_graph(img, graph)
-    os = [graph.node[i]['o'] for i in graph.nodes()]
-    os = np.array(os)
-    plt.plot(os[:,1], os[:,0], 'r.')
-    plt.imshow(img)
-    plt.show()
-    
-def test_shortest_path(img, graph):
-    path = nx.shortest_path(graph, 0, 7, weight='weight')
-    draw_graph(img, graph)
-    for i in range(1, len(path)):
-        pts = graph[path[i-1]][path[i]]['pts']
-        img[pts[:,0], pts[:,1]] = 255
-    print(path)
-    plt.imshow(img)
-    plt.show()
-    
-if __name__ == '__main__':
-    from time import time
-    
-    img = data.horse()
-    ske = skeletonize(~img).astype(np.uint16)
-    ske1, ske2 = ske.copy(), ske.copy()
-
-    start = time()
-    build_sknw(ske1)
-    print(time()-start)
-
-    start = time()
-    build_sknw(ske2)
-    print(time()-start)
-    #test_draw_graph(ske, graph)
-    #test_shortest_path(ske, graph)
-
-    from skan import csr
-    ske1, ske2 = ske.copy(), ske.copy()
-    start = time()
-    csr.skeleton_to_csgraph(ske1)
-    print(time()-start)
-    start = time()
-    csr.skeleton_to_csgraph(ske2)
-    print(time()-start)
-
-    ''' 
-    img = imread('ske.png')
-    
-    nbs = neighbors(img.shape)
-    buf = np.zeros(100000, dtype=np.uint64)
-    start = time()
-
-    fill(img.copy(), 10100, 120, nbs, acc, buf)
-    #fill(img.copy(), 100, 100, 120, buf)
-    print(time()-start)
-    start = time()
-    fill(img, 10100, 120, nbs, acc, buf)
-    #fill(img, 100, 100, 120, buf)
-    print(time()-start)
-    plt.imshow(img)
-    plt.show()
-    
-
-    #print(neighbors((10,5)))
-
-    '''
