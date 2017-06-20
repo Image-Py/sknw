@@ -7,91 +7,118 @@ import matplotlib.pyplot as plt
 from skimage import data
 from skimage.morphology import skeletonize
 
-def mark(img): # mark the array use (0, 1, 2)
-    core = np.array([[1,1,1],[1,0,1],[1,1,1]])
-    msk = img>0
-    nimg.filters.convolve(msk, core, output=img)
-    img *= msk
-    img[img==1] = 3
-    img[img==2] = 1
-    img[img>=3] = 2
+# get neighbors d index
+def neighbors(shape):
+    dim = len(shape)
+    block = np.ones([3]*dim)
+    block[tuple([1]*dim)] = 0
+    idx = np.where(block>0)
+    idx = np.array(idx, dtype=np.uint8).T
+    idx = np.array(idx-[1]*dim)
+    acc = np.cumprod((1,)+shape[::-1][:-1])[::-1]
+    return np.dot(idx, acc)
 
+@jit # my mark
+def mark(img): # mark the array use (0, 1, 2)
+    nbs = neighbors(img.shape)
+    img = img.ravel()
+    for p in range(len(img)):
+        if img[p]==0:continue
+        s = 0
+        for dp in nbs:
+            if img[p+dp]!=0:s+=1
+        if s==2:img[p]=1
+        else:img[p]=2
+
+@jit # trans index to r, c...
+def idx2rc(idx, acc):
+    rst = np.zeros((len(idx), len(acc)), dtype=np.uint16)
+    for i in range(len(idx)):
+        for j in range(len(acc)):
+            rst[i,j] = idx[i]//acc[j]
+            idx[i] -= rst[i,j]*acc[j]
+    return rst
+    
 @jit # fill a node (may be two or more points)
-def fill(img, r,c, num, buf):
-    back = img[r,c]
-    img[r,c] = num
-    buf[0,0]=r;buf[0,1]=c
+def fill(img, p, num, nbs, acc, buf):
+    back = img[p]
+    img[p] = num
+    buf[0] = p
     cur = 0; s = 1;
+    
     while True:
-        r=buf[cur,0]; c=buf[cur,1]
-        for rr in (-1,0,1):
-            for cc in (-1, 0, 1):
-                if img[r+rr, c+cc]==back:
-                    img[r+rr, c+cc] = num
-                    buf[s,0] = r+rr
-                    buf[s,1] = c+cc
-                    s+=1
-                    #print('one')
+        p = buf[cur]
+        for dp in nbs:
+            cp = p+dp
+            if img[cp]==back:
+                img[cp] = num
+                buf[s] = cp
+                s+=1
         cur += 1
         if cur==s:break
-    return buf[:s].copy()
+    return idx2rc(buf[:s], acc)
 
 @jit # trace the edge and use a buffer, then buf.copy, if use [] numba not works
-def trace(img, r,c, buf):
+def trace(img, p, nbs, acc, buf):
     c1 = 0; c2 = 0
-    nc = 0; nr = 0
+    newp = 0
     cur = 0
+
+    b = p==97625
     while True:
-        buf[cur,0] = r; buf[cur,1] = c
-        img[r,c] = 0
+        buf[cur] = p
+        img[p] = 0
         cur += 1
-        for rr in (-1,0,1):
-            for cc in (-1, 0, 1):
-                if img[rr+r, cc+c] >= 10:
-                    if c1==0:c1=img[rr+r, cc+c]
-                    else: c2 = img[rr+r, cc+c]
-                    #print('got', img[rr+r, cc+c])
-                if img[rr+r, cc+c] == 1:
-                    nr = rr+r; nc = cc+c
-                    #print('new',nr,nc)
-        r = nr; c = nc
+        for dp in nbs:
+            cp = p + dp
+            if img[cp] >= 10:
+                if c1==0:c1=img[cp]
+                else: c2 = img[cp]
+            if img[cp] == 1:
+                newp = cp
+        p = newp
         if c2!=0:break
-    return (c1-10, c2-10, buf[:cur].copy())
-    
+    return (c1-10, c2-10, idx2rc(buf[:cur], acc))
+   
 @jit # parse the image then get the nodes and edges
 def parse_struc(img):
-    pts = np.array(np.where(img==2)).T
-
-    buf = np.zeros((10,2), dtype=np.int)
+    nbs = neighbors(img.shape)
+    acc = np.cumprod((1,)+img.shape[::-1][:-1])[::-1]
+    img = img.ravel()
+    pts = np.array(np.where(img==2))[0]
+    buf = np.zeros(20, dtype=np.int64)
     num = 10
     nodes = []
-    for i in pts:
-        if img[i[0], i[1]] == 2:
-            nds = fill(img, i[0], i[1], num, buf)
+    for p in pts:
+        if img[p] == 2:
+            nds = fill(img, p, num, nbs, acc, buf)
             num += 1
             nodes.append(nds)
-            
-    buf = np.zeros((1000, 2), dtype=np.int)
+    
+    buf = np.zeros(10000, dtype=np.int64)
     edges = []
-    for i in pts:
-        r = i[0]; c = i[1]
-        for rr in (-1,0,1):
-            for cc in (-1, 0, 1):
-                if img[r+rr, c+cc]==1:
-                    edge = trace(img, r+rr, c+cc, buf)
-                    edges.append(edge)
+    for p in pts:
+        for dp in nbs:
+            if img[p+dp]==1:
+                edge = trace(img, p+dp, nbs, acc, buf)
+                edges.append(edge)
     return nodes, edges
-
+    
 # use nodes and edges build a networkx graph
 def build_graph(nodes, edges):
     graph = nx.Graph()
     for i in range(len(nodes)):
-        graph.add_node(i, pts=nodes[i])
+        graph.add_node(i, pts=nodes[i], o=nodes[i].mean(axis=0))
     for s,e,pts in edges:
         l = np.linalg.norm(pts[1:]-pts[:-1], axis=1).sum()
         graph.add_edge(s,e, pts=pts, weight=l)
     return graph
 
+def build_sknw(ske):
+    mark(ske)
+    nodes, edges = parse_struc(ske.copy())
+    return build_graph(nodes, edges)
+    
 # draw the graph
 def draw_graph(img, graph):
     for idx in graph.nodes():
@@ -104,6 +131,9 @@ def draw_graph(img, graph):
 # ====================== test ========================
 def test_draw_graph(img, graph):
     draw_graph(img, graph)
+    os = [graph.node[i]['o'] for i in graph.nodes()]
+    os = np.array(os)
+    plt.plot(os[:,1], os[:,0], 'r.')
     plt.imshow(img)
     plt.show()
     
@@ -118,13 +148,49 @@ def test_shortest_path(img, graph):
     plt.show()
     
 if __name__ == '__main__':
+    from time import time
+    
     img = data.horse()
-    ske = skeletonize(True^img).astype(np.uint16)
-    plt.imshow(ske)
-    plt.show()
-    mark(ske)
-    nodes, edges = parse_struc(ske)
-    graph = build_graph(nodes, edges)
+    ske = skeletonize(~img).astype(np.uint16)
+    ske1, ske2 = ske.copy(), ske.copy()
 
-    test_draw_graph(ske, graph)
-    test_shortest_path(ske, graph)
+    start = time()
+    build_sknw(ske1)
+    print(time()-start)
+
+    start = time()
+    build_sknw(ske2)
+    print(time()-start)
+    #test_draw_graph(ske, graph)
+    #test_shortest_path(ske, graph)
+
+    from skan import csr
+    ske1, ske2 = ske.copy(), ske.copy()
+    start = time()
+    csr.skeleton_to_csgraph(ske1)
+    print(time()-start)
+    start = time()
+    csr.skeleton_to_csgraph(ske2)
+    print(time()-start)
+
+    ''' 
+    img = imread('ske.png')
+    
+    nbs = neighbors(img.shape)
+    buf = np.zeros(100000, dtype=np.uint64)
+    start = time()
+
+    fill(img.copy(), 10100, 120, nbs, acc, buf)
+    #fill(img.copy(), 100, 100, 120, buf)
+    print(time()-start)
+    start = time()
+    fill(img, 10100, 120, nbs, acc, buf)
+    #fill(img, 100, 100, 120, buf)
+    print(time()-start)
+    plt.imshow(img)
+    plt.show()
+    
+
+    #print(neighbors((10,5)))
+
+    '''
