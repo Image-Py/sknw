@@ -44,7 +44,7 @@ plt.show()
 ```
 ![](http://home.imagepy.org/sknw/buildgraph.png "解压")
 ### Find Path
-then you can use networkx do what you want to do
+then you can use networkx do what you want
 ![](http://home.imagepy.org/sknw/findpath.png "解压")
 ### 3D Skeleton
 sknw can works on nd image, this is a 3d demo by mayavi
