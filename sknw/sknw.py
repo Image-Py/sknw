@@ -122,23 +122,3 @@ def draw_graph(img, graph):
     for (s, e) in graph.edges():
         pts = graph[s][e]['pts']
         img[pts[:,0], pts[:,1]] = 128
-
-if __name__ == '__main__':
-    from skimage.morphology import skeletonize
-    import numpy as np
-    from skimage import data
-    import matplotlib.pyplot as plt
-    
-    img = data.horse()
-    ske = skeletonize(~img).astype(np.uint16)
-    graph = build_sknw(ske)
-    plt.imshow(img, cmap='gray')
-    for (s,e) in graph.edges():
-        ps = graph[s][e]['pts']
-        plt.plot(ps[:,1], ps[:,0], 'green')
-
-    node, nodes = graph.node, graph.nodes()
-    ps = np.array([node[i]['o'] for i in nodes])
-    plt.plot(ps[:,1], ps[:,0], 'r.')
-    plt.title('Build Graph')
-    plt.show()

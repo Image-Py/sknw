@@ -6,7 +6,7 @@ Inspired by Juan Nunez-Iglesias's skan.
 
 if __name__ == '__main__':
     setup(name='sknw',
-        version='0.1',
+        version='0.11',
         url='https://github.com/yxdragon/sknw',
         description='Analysis of object skeletons',
         long_description=descr,
