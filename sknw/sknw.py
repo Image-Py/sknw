@@ -32,6 +32,7 @@ def idx2rc(idx, acc):
         for j in range(len(acc)):
             rst[i,j] = idx[i]//acc[j]
             idx[i] -= rst[i,j]*acc[j]
+    rst -= 1
     return rst
     
 @jit # fill a node (may be two or more points)
@@ -55,11 +56,10 @@ def fill(img, p, num, nbs, acc, buf):
 
 @jit # trace the edge and use a buffer, then buf.copy, if use [] numba not works
 def trace(img, p, nbs, acc, buf):
-    c1 = 0; c2 = 0
+    c1 = 0; c2 = 0;
     newp = 0
     cur = 0
 
-    b = p==97625
     while True:
         buf[cur] = p
         img[p] = 0
@@ -81,7 +81,7 @@ def parse_struc(img):
     acc = np.cumprod((1,)+img.shape[::-1][:-1])[::-1]
     img = img.ravel()
     pts = np.array(np.where(img==2))[0]
-    buf = np.zeros(20, dtype=np.int64)
+    buf = np.zeros(131072, dtype=np.int64)
     num = 10
     nodes = []
     for p in pts:
@@ -89,8 +89,7 @@ def parse_struc(img):
             nds = fill(img, p, num, nbs, acc, buf)
             num += 1
             nodes.append(nds)
-    
-    buf = np.zeros(10000, dtype=np.int64)
+
     edges = []
     for p in pts:
         for dp in nbs:
@@ -100,8 +99,8 @@ def parse_struc(img):
     return nodes, edges
     
 # use nodes and edges build a networkx graph
-def build_graph(nodes, edges):
-    graph = nx.Graph()
+def build_graph(nodes, edges, multi=False):
+    graph = nx.MultiGraph() if multi else nx.Graph()
     for i in range(len(nodes)):
         graph.add_node(i, pts=nodes[i], o=nodes[i].mean(axis=0))
     for s,e,pts in edges:
@@ -109,16 +108,38 @@ def build_graph(nodes, edges):
         graph.add_edge(s,e, pts=pts, weight=l)
     return graph
 
-def build_sknw(ske):
-    mark(ske)
-    nodes, edges = parse_struc(ske.copy())
-    return build_graph(nodes, edges)
+def buffer(ske):
+    buf = np.zeros(tuple(np.array(ske.shape)+2), dtype=np.uint16)
+    buf[tuple([slice(1,-1)]*buf.ndim)] = ske
+    return buf
+
+def build_sknw(ske, multi=False):
+    buf = buffer(ske)
+    mark(buf)
+    nodes, edges = parse_struc(buf)
+    return build_graph(nodes, edges, multi)
     
 # draw the graph
-def draw_graph(img, graph):
+def draw_graph(img, graph, cn=255, ce=128):
+    acc = np.cumprod((1,)+img.shape[::-1][:-1])[::-1]
+    img = img.ravel()
     for idx in graph.nodes():
         pts = graph.node[idx]['pts']
-        img[pts[:,0], pts[:,1]] = 255
+        img[np.dot(pts, acc)] = cn
     for (s, e) in graph.edges():
-        pts = graph[s][e]['pts']
-        img[pts[:,0], pts[:,1]] = 128
+        eds = graph[s][e]
+        for i in eds:
+            pts = eds[i]['pts']
+            img[np.dot(pts, acc)] = ce
+
+if __name__ == '__main__':
+    g = nx.MultiGraph()
+    g.add_nodes_from([1,2,3,4,5])
+    g.add_edges_from([(1,2),(1,3),(2,3),(4,5),(5,4)])
+    print(g.nodes())
+    print(g.edges())
+    a = g.subgraph(1)
+    print('d')
+    print(a)
+    print('d')
+    
