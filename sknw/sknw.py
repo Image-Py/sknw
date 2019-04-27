@@ -34,14 +34,14 @@ def idx2rc(idx, acc):
             idx[i] -= rst[i,j]*acc[j]
     rst -= 1
     return rst
-    
+
 @jit # fill a node (may be two or more points)
 def fill(img, p, num, nbs, acc, buf):
     back = img[p]
     img[p] = num
     buf[0] = p
     cur = 0; s = 1;
-    
+
     while True:
         p = buf[cur]
         for dp in nbs:
@@ -51,7 +51,7 @@ def fill(img, p, num, nbs, acc, buf):
                 buf[s] = cp
                 s+=1
         cur += 1
-        if cur==s:break
+        if cur==s or s >= len(buf):break
     return idx2rc(buf[:s], acc)
 
 @jit # trace the edge and use a buffer, then buf.copy, if use [] numba not works
@@ -72,16 +72,16 @@ def trace(img, p, nbs, acc, buf):
             if img[cp] == 1:
                 newp = cp
         p = newp
-        if c2!=0:break
+        if c2!=0 or cur >= len(buf):break
     return (c1-10, c2-10, idx2rc(buf[:cur], acc))
-   
+
 @jit # parse the image then get the nodes and edges
-def parse_struc(img):
+def parse_struc(img, buf_size):
     nbs = neighbors(img.shape)
     acc = np.cumprod((1,)+img.shape[::-1][:-1])[::-1]
     img = img.ravel()
     pts = np.array(np.where(img==2))[0]
-    buf = np.zeros(131072, dtype=np.int64)
+    buf = np.zeros(buf_size, dtype=np.int64)
     num = 10
     nodes = []
     for p in pts:
@@ -97,7 +97,7 @@ def parse_struc(img):
                 edge = trace(img, p+dp, nbs, acc, buf)
                 edges.append(edge)
     return nodes, edges
-    
+
 # use nodes and edges build a networkx graph
 def build_graph(nodes, edges, multi=False):
     graph = nx.MultiGraph() if multi else nx.Graph()
@@ -113,12 +113,12 @@ def buffer(ske):
     buf[tuple([slice(1,-1)]*buf.ndim)] = ske
     return buf
 
-def build_sknw(ske, multi=False):
+def build_sknw(ske, buf_size=131072, multi=False):
     buf = buffer(ske)
     mark(buf)
-    nodes, edges = parse_struc(buf)
+    nodes, edges = parse_struc(buf, buf_size)
     return build_graph(nodes, edges, multi)
-    
+
 # draw the graph
 def draw_graph(img, graph, cn=255, ce=128):
     acc = np.cumprod((1,)+img.shape[::-1][:-1])[::-1]
@@ -142,4 +142,3 @@ if __name__ == '__main__':
     print('d')
     print(a)
     print('d')
-    
