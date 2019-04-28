@@ -50,6 +50,7 @@ def fill(img, p, num, nbs, acc, buf):
                 img[cp] = num
                 buf[s] = cp
                 s+=1
+                if s >= len(buf):break
         cur += 1
         if cur==s or s >= len(buf):break
     return idx2rc(buf[:s], acc)
