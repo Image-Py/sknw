@@ -1,5 +1,5 @@
 import numpy as np
-from numba import njit, jit
+from numba import jit
 import networkx as nx
 
 def neighbors(shape):
@@ -12,7 +12,7 @@ def neighbors(shape):
     acc = np.cumprod((1,)+shape[::-1][:-1])
     return np.dot(idx, acc[::-1])
 
-@jit(nopython=False) # my mark
+@jit(nopython=True) # my mark
 def mark(img, nbs): # mark the array use (0, 1, 2)
     img = img.ravel()
     for p in range(len(img)):
@@ -23,7 +23,7 @@ def mark(img, nbs): # mark the array use (0, 1, 2)
         if s==2:img[p]=1
         else:img[p]=2
 
-@jit(nopython=False) # trans index to r, c...
+@jit(nopython=True) # trans index to r, c...
 def idx2rc(idx, acc):
     rst = np.zeros((len(idx), len(acc)), dtype=np.int16)
     for i in range(len(idx)):
@@ -33,7 +33,7 @@ def idx2rc(idx, acc):
     rst -= 1
     return rst
     
-@jit(nopython=False) # fill a node (may be two or more points)
+@jit(nopython=True) # fill a node (may be two or more points)
 def fill(img, p, num, nbs, acc, buf):
     back = img[p]
     img[p] = num
@@ -52,7 +52,7 @@ def fill(img, p, num, nbs, acc, buf):
         if cur==s:break
     return idx2rc(buf[:s], acc)
 
-@jit(nopython=False) # trace the edge and use a buffer, then buf.copy, if use [] numba not works
+@jit(nopython=True) # trace the edge and use a buffer, then buf.copy, if use [] numba not works
 def trace(img, p, nbs, acc, buf):
     c1 = 0; c2 = 0;
     newp = 0
@@ -73,7 +73,7 @@ def trace(img, p, nbs, acc, buf):
         if c2!=0:break
     return (c1-10, c2-10, idx2rc(buf[:cur], acc))
    
-@jit(nopython=False) # parse the image then get the nodes and edges
+@jit(nopython=True) # parse the image then get the nodes and edges
 def parse_struc(img, pts, nbs, acc):
     img = img.ravel()
     buf = np.zeros(131072, dtype=np.int64)
