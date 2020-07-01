@@ -41,8 +41,8 @@ for (s,e) in graph.edges():
     plt.plot(ps[:,1], ps[:,0], 'green')
     
 # draw node by o
-node, nodes = graph.node, graph.nodes()
-ps = np.array([node[i]['o'] for i in nodes])
+nodes = graph.nodes()
+ps = np.array([nodes[i]['o'] for i in nodes])
 plt.plot(ps[:,1], ps[:,0], 'r.')
 
 # title and show

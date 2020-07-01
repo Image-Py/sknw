@@ -19,8 +19,8 @@ def test():
         ps = graph[s][e]['pts']
         plt.plot(ps[:,1], ps[:,0], 'green')
 
-    node, nodes = graph.node, graph.nodes()
-    ps = np.array([node[i]['o'] for i in nodes])
+    nodes = graph.nodes()
+    ps = np.array([nodes[i]['o'] for i in nodes])
     plt.plot(ps[:,1], ps[:,0], 'r.')
     plt.title('Build Graph')
     plt.show()
