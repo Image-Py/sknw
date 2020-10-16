@@ -35,22 +35,22 @@ def idx2rc(idx, acc):
     
 @jit(nopython=True) # fill a node (may be two or more points)
 def fill(img, p, num, nbs, acc, buf):
-    back = img[p]
     img[p] = num
     buf[0] = p
-    cur = 0; s = 1;
+    cur = 0; s = 1; iso = True;
     
     while True:
         p = buf[cur]
         for dp in nbs:
             cp = p+dp
-            if img[cp]==back:
+            if img[cp]==2:
                 img[cp] = num
                 buf[s] = cp
                 s+=1
+            if img[cp]==1: iso=False
         cur += 1
         if cur==s:break
-    return idx2rc(buf[:s], acc)
+    return iso, idx2rc(buf[:s], acc)
 
 @jit(nopython=True) # trace the edge and use a buffer, then buf.copy, if use [] numba not works
 def trace(img, p, nbs, acc, buf):
@@ -77,18 +77,29 @@ def trace(img, p, nbs, acc, buf):
     return (c1-10, c2-10, idx2rc(buf[:cur+1], acc))
    
 @jit(nopython=True) # parse the image then get the nodes and edges
-def parse_struc(img, pts, nbs, acc):
+def parse_struc(img, nbs, acc, iso, ring):
     img = img.ravel()
     buf = np.zeros(131072, dtype=np.int64)
     num = 10
     nodes = []
-    for p in pts:
+    for p in range(len(img)):
         if img[p] == 2:
-            nds = fill(img, p, num, nbs, acc, buf)
+            isiso, nds = fill(img, p, num, nbs, acc, buf)
+            if isiso and not iso: continue
             num += 1
             nodes.append(nds)
     edges = []
-    for p in pts:
+    for p in range(len(img)):
+        if img[p] <10: continue
+        for dp in nbs:
+            if img[p+dp]==1:
+                edge = trace(img, p+dp, nbs, acc, buf)
+                edges.append(edge)
+    if not ring: return nodes, edges
+    for p in range(len(img)):
+        if img[p]!=1: continue
+        img[p] = num; num += 1
+        nodes.append(idx2rc([p], acc))
         for dp in nbs:
             if img[p+dp]==1:
                 edge = trace(img, p+dp, nbs, acc, buf)
@@ -105,25 +116,19 @@ def build_graph(nodes, edges, multi=False):
         graph.add_edge(s,e, pts=pts, weight=l)
     return graph
 
-def buffer(ske):
-    buf = np.zeros(tuple(np.array(ske.shape)+2), dtype=np.uint16)
-    buf[tuple([slice(1,-1)]*buf.ndim)] = ske
-    return buf
-
 def mark_node(ske):
-    buf = buffer(ske)
+    buf = np.pad(ske, (1,1), mode='constant')
     nbs = neighbors(buf.shape)
     acc = np.cumprod((1,)+buf.shape[::-1][:-1])[::-1]
     mark(buf, nbs)
     return buf
     
-def build_sknw(ske, multi=False):
-    buf = buffer(ske)
+def build_sknw(ske, multi=False, iso=True, ring=True):
+    buf = np.pad(ske, (1,1), mode='constant')
     nbs = neighbors(buf.shape)
     acc = np.cumprod((1,)+buf.shape[::-1][:-1])[::-1]
     mark(buf, nbs)
-    pts = np.array(np.where(buf.ravel()==2))[0]
-    nodes, edges = parse_struc(buf, pts, nbs, acc)
+    nodes, edges = parse_struc(buf, nbs, acc, iso, ring)
     return build_graph(nodes, edges, multi)
     
 # draw the graph
@@ -143,21 +148,20 @@ def draw_graph(img, graph, cn=255, ce=128):
 
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    
+
     img = np.array([
         [0,0,0,1,0,0,0,0,0],
-        [0,0,0,1,0,0,0,0,0],
+        [0,0,0,1,0,0,0,1,0],
         [0,0,0,1,0,0,0,0,0],
         [1,1,1,1,0,0,0,0,0],
         [0,0,0,0,1,0,0,0,0],
-        [0,0,0,0,0,1,0,0,0],
-        [0,0,0,0,0,1,1,1,1],
-        [0,0,0,0,1,0,0,0,0],
+        [0,1,0,0,0,1,0,0,0],
+        [1,0,1,0,0,1,1,1,1],
+        [0,1,0,0,1,0,0,0,0],
         [0,0,0,1,0,0,0,0,0]])
 
     node_img = mark_node(img)
-    graph = build_sknw(img)
-    
+    graph = build_sknw(img, False, iso=True, ring=True)
     plt.imshow(node_img[1:-1,1:-1], cmap='gray')
 
     # draw edges by pts
@@ -173,3 +177,4 @@ if __name__ == '__main__':
     # title and show
     plt.title('Build Graph')
     plt.show()
+    
