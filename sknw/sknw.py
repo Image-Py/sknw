@@ -107,11 +107,14 @@ def parse_struc(img, nbs, acc, iso, ring):
     return nodes, edges
     
 # use nodes and edges build a networkx graph
-def build_graph(nodes, edges, multi=False):
+def build_graph(nodes, edges, multi=False, full=True):
+    os = np.array([i.mean(axis=0) for i in nodes])
+    if full: os = os.round().astype(np.uint16)
     graph = nx.MultiGraph() if multi else nx.Graph()
     for i in range(len(nodes)):
-        graph.add_node(i, pts=nodes[i], o=nodes[i].mean(axis=0))
+        graph.add_node(i, pts=nodes[i], o=os[i])
     for s,e,pts in edges:
+        if full: pts[[0,-1]] = os[[s,e]]
         l = np.linalg.norm(pts[1:]-pts[:-1], axis=1).sum()
         graph.add_edge(s,e, pts=pts, weight=l)
     return graph
@@ -123,13 +126,13 @@ def mark_node(ske):
     mark(buf, nbs)
     return buf
     
-def build_sknw(ske, multi=False, iso=True, ring=True):
+def build_sknw(ske, multi=False, iso=True, ring=True, full=True):
     buf = np.pad(ske, (1,1), mode='constant')
     nbs = neighbors(buf.shape)
     acc = np.cumprod((1,)+buf.shape[::-1][:-1])[::-1]
     mark(buf, nbs)
     nodes, edges = parse_struc(buf, nbs, acc, iso, ring)
-    return build_graph(nodes, edges, multi)
+    return build_graph(nodes, edges, multi, full)
     
 # draw the graph
 def draw_graph(img, graph, cn=255, ce=128):
@@ -177,4 +180,3 @@ if __name__ == '__main__':
     # title and show
     plt.title('Build Graph')
     plt.show()
-    
