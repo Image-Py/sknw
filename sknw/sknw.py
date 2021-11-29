@@ -25,7 +25,7 @@ def mark(img, nbs): # mark the array use (0, 1, 2)
 
 @jit(nopython=True) # trans index to r, c...
 def idx2rc(idx, acc):
-    rst = np.zeros((len(idx), len(acc)), dtype=np.int16)
+    rst = np.zeros((len(idx), len(acc)), dtype=np.int32)
     for i in range(len(idx)):
         for j in range(len(acc)):
             rst[i,j] = idx[i]//acc[j]
