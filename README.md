@@ -2,16 +2,25 @@ Skeleton Network
 ======================
 build net work from nd skeleton image
 
-### graph = sknw.build_sknw(ske， multi=False)
+### graph = sknw.build_sknw(ske， multi=False, iso=True, ring=True, full=True)
 > **ske:** should be a nd skeleton image
 > 
-> **multi:** if True，a multigraph is retured, which allows more than one edge between two nodes and self-self edge. default is False.
+> **multi:** if True，a multigraph is retured, which allows more than one edge between two nodes and self-self edge.
+>
+> **iso:** if True, return one-pixel node
+>
+> **ring:** if True, return ring without any branch (and insert a self-connected node in the ring)
+>
+> **full:** if True, every edge start from the node's centroid. else touch the node block but not from the centroid.
 > 
 > **return:** is a networkx Graph object
+
+![image](https://user-images.githubusercontent.com/24822467/144245690-8def3215-344f-464c-a825-bc33568758f7.png)
+
 ### graph detail:
-> **graph.node[id]['pts'] :** Numpy(x, n), coordinates of nodes points
+> **graph.nodes[id]['pts'] :** Numpy(x, n), coordinates of nodes points
 > 
-> **graph.node[id]['o']:** Numpy(n), centried of the node
+> **graph.nodes[id]['o']:** Numpy(n), centroid of the node
 > 
 > **graph.edge(id1, id2)['pts']:** Numpy(x, n), sequence of the edge point
 > 

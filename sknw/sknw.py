@@ -164,19 +164,24 @@ if __name__ == '__main__':
         [0,0,0,1,0,0,0,0,0]])
 
     node_img = mark_node(img)
-    graph = build_sknw(img, False, iso=True, ring=True)
-    plt.imshow(node_img[1:-1,1:-1], cmap='gray')
+    para = [{'iso':False}, {'ring':False}, {'full':False},
+            {'iso':True}, {'ring':True}, {'full':True}]
+    for i,p,k in zip([1,2,3,4,5,6], [231,232,233,234,235,236], para):
+        print(k)
+        graph = build_sknw(img, False, **k)
+        ax = plt.subplot(p)
+        ax.imshow(node_img[1:-1,1:-1], cmap='gray')
 
-    # draw edges by pts
-    for (s,e) in graph.edges():
-        ps = graph[s][e]['pts']
-        plt.plot(ps[:,1], ps[:,0], 'green')
-        
-    # draw node by o
-    nodes = graph.nodes()
-    ps = np.array([nodes[i]['o'] for i in nodes])
-    plt.plot(ps[:,1], ps[:,0], 'r.')
+        # draw edges by pts
+        for (s,e) in graph.edges():
+            ps = graph[s][e]['pts']
+            ax.plot(ps[:,1], ps[:,0], 'green')
+            
+        # draw node by o
+        nodes = graph.nodes()
+        ps = np.array([nodes[i]['o'] for i in nodes])
+        ax.plot(ps[:,1], ps[:,0], 'r.')
 
-    # title and show
-    plt.title('Build Graph')
+        # title and show
+        ax.title.set_text(k)
     plt.show()
