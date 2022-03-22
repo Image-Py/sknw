@@ -25,7 +25,7 @@ def mark(img, nbs): # mark the array use (0, 1, 2)
 
 @jit(nopython=True) # trans index to r, c...
 def idx2rc(idx, acc):
-    rst = np.zeros((len(idx), len(acc)), dtype=np.int16)
+    rst = np.zeros((len(idx), len(acc)), dtype=np.int64)
     for i in range(len(idx)):
         for j in range(len(acc)):
             rst[i,j] = idx[i]//acc[j]
@@ -77,9 +77,9 @@ def trace(img, p, nbs, acc, buf):
     return (c1-10, c2-10, idx2rc(buf[:cur+1], acc))
    
 @jit(nopython=True) # parse the image then get the nodes and edges
-def parse_struc(img, nbs, acc, iso, ring):
+def parse_struc(img, nbs, acc, iso, ring, buf_size):
     img = img.ravel()
-    buf = np.zeros(131072, dtype=np.int64)
+    buf = np.zeros(buf_size, dtype=np.int64)
     num = 10
     nodes = []
     for p in range(len(img)):
@@ -126,12 +126,12 @@ def mark_node(ske):
     mark(buf, nbs)
     return buf
     
-def build_sknw(ske, multi=False, iso=True, ring=True, full=True):
+def build_sknw(ske, buf_size=131072, multi=False, iso=True, ring=True, full=True):
     buf = np.pad(ske, (1,1), mode='constant').astype(np.uint16)
     nbs = neighbors(buf.shape)
     acc = np.cumprod((1,)+buf.shape[::-1][:-1])[::-1]
     mark(buf, nbs)
-    nodes, edges = parse_struc(buf, nbs, acc, iso, ring)
+    nodes, edges = parse_struc(buf, nbs, acc, iso, ring, buf_size)
     return build_graph(nodes, edges, multi, full)
     
 # draw the graph
